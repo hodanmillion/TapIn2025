@@ -1,0 +1,4 @@
+# Production overrides
+environment: production
+jwt_expiry: "5m"
+rate_limit: 30

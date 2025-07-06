@@ -1,0 +1,39 @@
+# Development overrides - volumes for hot reloading
+services:
+  auth:
+    volumes:
+      - ./auth:/app
+    environment:
+      - CGO_ENABLED=0
+      - GOOS=linux
+    command: go run main.go
+
+  user:
+    volumes:
+      - ./user:/app
+      - /app/node_modules
+    command: npm run dev
+
+  chat:
+    volumes:
+      - ./chat:/app
+      - /app/target
+    environment:
+      - RUST_LOG=debug
+    command: cargo watch -x run
+
+  address:
+    volumes:
+      - ./address:/app
+    command: python run.py
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    command: npm run dev

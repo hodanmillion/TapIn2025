@@ -1,0 +1,192 @@
+services:
+  # PostgreSQL database for auth and user services
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostGIS database for address service
+  postgis:
+    image: postgis/postgis:16-3.4-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: address_db
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MongoDB for chat service
+  mongodb:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+      MONGO_INITDB_DATABASE: chat_db
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ for message queue
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Auth Service (Go)
+  auth:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/auth_db?sslmode=disable"
+      REDIS_URL: "redis://redis:6379"
+      JWT_SECRET: "your-super-secret-jwt-key"
+      JWT_EXPIRY: "24h"
+      PORT: 8080
+      ENVIRONMENT: "development"
+      ALLOWED_ORIGINS: "http://localhost,http://frontend"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  # User Service (Node.js)
+  user:
+    build:
+      context: ./user
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/user_db?schema=public"
+      REDIS_URL: "redis://redis:6379"
+      JWT_SECRET: "your-super-secret-jwt-key"
+      RABBITMQ_URL: "amqp://admin:admin@rabbitmq:5672"
+      AWS_REGION: "us-east-1"
+      AWS_ACCESS_KEY_ID: "local-dev-key"
+      AWS_SECRET_ACCESS_KEY: "local-dev-secret"
+      S3_BUCKET_NAME: "user-avatars-dev"
+      PORT: 3002
+      NODE_ENV: "development"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+
+  # Chat Service (Rust)
+  chat:
+    build:
+      context: ./chat
+      dockerfile: Dockerfile
+    environment:
+      MONGODB_URI: "mongodb://admin:admin@mongodb:27017/chat_db?authSource=admin"
+      REDIS_URI: "redis://redis:6379"
+      PORT: 3001
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
+  # Address Service (Python)
+  address:
+    build:
+      context: ./address
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://postgres:postgres@postgis:5432/address_db"
+      REDIS_URL: "redis://redis:6379"
+      PORT: 8000
+      DEBUG: "true"
+      ALLOWED_ORIGINS: '["http://localhost", "http://frontend"]'
+    depends_on:
+      postgis:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  # Frontend (React)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "3080:3080"
+    depends_on:
+      - auth
+      - user
+      - chat
+      - address
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  postgis_data:
+  redis_data:
+  mongodb_data:
+  rabbitmq_data:

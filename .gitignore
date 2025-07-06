@@ -1,0 +1,120 @@
+# Environment files
+.env
+.env.local
+.env.production
+
+# Docker volumes
+postgres_data/
+postgis_data/
+redis_data/
+mongodb_data/
+rabbitmq_data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Node.js (user service, frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+build/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+coverage/
+.eslintcache
+.nyc_output/
+
+# Go (auth service)
+auth/auth-service
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+vendor/
+
+# Rust (chat service)
+chat/target/
+chat/Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Python (address service)
+address/__pycache__/
+address/*.py[cod]
+address/*$py.class
+address/*.so
+address/.Python
+address/build/
+address/develop-eggs/
+address/dist/
+address/downloads/
+address/eggs/
+address/.eggs/
+address/lib/
+address/lib64/
+address/parts/
+address/sdist/
+address/var/
+address/wheels/
+address/*.egg-info/
+address/.installed.cfg
+address/*.egg
+address/MANIFEST
+address/.pytest_cache/
+address/.coverage
+address/htmlcov/
+address/.tox/
+address/.nox/
+address/.mypy_cache/
+address/.dmypy.json
+address/dmypy.json
+address/.pyre/
+address/address.db
+
+# React/Vite (frontend)
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/storybook-static/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Test results and coverage
+test-results/
+coverage/
+*.lcov
+.coverage
+htmlcov/
+
+# Cache directories
+.cache/
+.npm/
+.yarn/
+.pnpm-store/

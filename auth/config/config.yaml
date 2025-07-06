@@ -1,0 +1,11 @@
+port: 8080
+environment: development
+database_url: "postgres://postgres:password@localhost:5432/auth?sslmode=disable"
+redis_url: "redis://localhost:6379/0"
+jwt_secret: "your-secret-key-here"
+jwt_expiry: "15m"
+refresh_expiry: "168h"
+rate_limit: 60
+allowed_origins:
+  - "http://localhost:3000"
+  - "http://localhost:4200"
