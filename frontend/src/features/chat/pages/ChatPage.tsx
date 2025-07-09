@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 export function ChatPage() {
   const { locationId } = useParams<{ locationId: string }>();
   const { user } = useAuth();
-  const { socket, isConnected, connectToLocation } = useSocket();
+  const { isConnected, connectToLocation, sendMessage: sendSocketMessage, onMessage, offMessage } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -26,24 +26,32 @@ export function ChatPage() {
     return () => {
       // Cleanup handled by SocketProvider
     };
-  }, [locationId]);
+  }, [locationId, connectToLocation]);
 
   useEffect(() => {
-    if (!socket) return;
-
-    socket.on('message', (message: Message) => {
-      setMessages((prev) => [...prev, message]);
-    });
-
-    socket.on('error', (error: any) => {
-      toast.error(error.message || 'Connection error');
-    });
-
-    return () => {
-      socket.off('message');
-      socket.off('error');
+    const handleMessage = (data: any) => {
+      switch (data.type) {
+        case 'NewMessage':
+          setMessages((prev) => [...prev, data.data as Message]);
+          break;
+        case 'MessageHistory':
+          setMessages(data.data.messages);
+          break;
+        case 'UserJoined':
+          toast.success(`${data.data.username} joined the chat`);
+          break;
+        case 'UserLeft':
+          toast(`${data.data.username} left the chat`, { icon: '👋' });
+          break;
+        case 'Error':
+          toast.error(data.data.message || 'Connection error');
+          break;
+      }
     };
-  }, [socket]);
+
+    onMessage(handleMessage);
+    return () => offMessage(handleMessage);
+  }, [onMessage, offMessage]);
 
   const loadMessages = async () => {
     if (!locationId) return;
@@ -61,14 +69,16 @@ export function ChatPage() {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !locationId) return;
+    const trimmedMessage = newMessage.trim();
+    if (!trimmedMessage || !locationId || !isConnected) return;
 
-    try {
-      await chatService.sendMessage(locationId, newMessage);
-      setNewMessage('');
-    } catch (error) {
-      toast.error('Failed to send message');
-    }
+    sendSocketMessage({
+      type: 'Message',
+      data: {
+        content: trimmedMessage
+      }
+    });
+    setNewMessage('');
   };
 
   if (isLoading) {

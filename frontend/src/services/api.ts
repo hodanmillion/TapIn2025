@@ -20,8 +20,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      localStorage.removeItem('token')
+      window.location.href = '/login'
     } else if (error.response?.data?.message) {
       toast.error(error.response.data.message);
     }

@@ -1,0 +1,24 @@
+{
+  "name": "tap-in-websocket-monitor",
+  "version": "1.0.0",
+  "description": "WebSocket monitoring tools for Tap-In Chat Service",
+  "main": "websocket_monitor.js",
+  "scripts": {
+    "monitor": "node websocket_monitor.js",
+    "monitor-interactive": "node websocket_monitor.js --scenario interactive",
+    "monitor-join": "node websocket_monitor.js --scenario join-chat",
+    "monitor-legacy": "node websocket_monitor.js --scenario legacy-join"
+  },
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "websocket",
+    "chat",
+    "monitor",
+    "debug"
+  ],
+  "author": "Tap-In Chat Service",
+  "license": "MIT"
+}

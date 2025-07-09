@@ -1,6 +1,8 @@
-use crate::{models::*, AppState};
+use crate::{models::*, local_chat::*, AppState};
 use axum::extract::ws::{Message as WsMsg, WebSocket};
 use futures::{sink::SinkExt, stream::StreamExt};
+use redis::aio::PubSub;
+use redis::AsyncCommands;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 use tracing::{error, info};
@@ -48,6 +50,13 @@ impl ConnectionManager {
     }
 }
 
+// Broadcast message structure for Redis pub/sub
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct BroadcastMessage {
+    from_socket_id: String,
+    message: WsMessage,
+}
+
 pub async fn handle_socket(socket: WebSocket, location_id: String, state: AppState) {
     let (mut sender, mut receiver) = socket.split();
     let socket_id = Uuid::new_v4().to_string();
@@ -59,6 +68,47 @@ pub async fn handle_socket(socket: WebSocket, location_id: String, state: AppSta
     let socket_id_clone = socket_id.clone();
     let location_id_clone = location_id.clone();
     let state_clone = state.clone();
+    let tx_clone = tx.clone();
+    let socket_id_for_redis = socket_id.clone();
+    
+    // Create Redis pub/sub connection for this client
+    let redis_client = state.redis.clone();
+    let channel_name = format!("room:{}", location_id);
+    
+    // Spawn task to handle Redis pub/sub messages
+    let mut redis_task = tokio::spawn(async move {
+        let mut pubsub: PubSub = match redis_client.get_async_connection().await {
+            Ok(conn) => conn.into_pubsub(),
+            Err(e) => {
+                error!("Failed to create Redis pub/sub connection: {}", e);
+                return;
+            }
+        };
+        
+        // Subscribe to room channel
+        if let Err(e) = pubsub.subscribe(&channel_name).await {
+            error!("Failed to subscribe to channel {}: {}", channel_name, e);
+            return;
+        }
+        
+        info!("Socket {} subscribed to Redis channel: {}", socket_id_for_redis, channel_name);
+        
+        // Listen for messages
+        let mut pubsub_stream = pubsub.on_message();
+        while let Some(msg) = pubsub_stream.next().await {
+            match msg.get_payload::<String>() {
+                Ok(payload) => {
+                    if let Ok(broadcast_msg) = serde_json::from_str::<BroadcastMessage>(&payload) {
+                        // Skip messages from the same socket
+                        if broadcast_msg.from_socket_id != socket_id_for_redis {
+                            let _ = tx_clone.send(broadcast_msg.message);
+                        }
+                    }
+                }
+                Err(e) => error!("Failed to parse Redis message: {}", e),
+            }
+        }
+    });
     
     // Spawn task to forward messages to client
     let mut send_task = tokio::spawn(async move {
@@ -88,13 +138,43 @@ pub async fn handle_socket(socket: WebSocket, location_id: String, state: AppSta
                         };
                         
                         let mut connections = state_clone.connections.write().await;
-                        connections.add_user(location_id_clone.clone(), socket_id_clone.clone(), user);
+                        connections.add_user(location_id_clone.clone(), socket_id_clone.clone(), user.clone());
                         let user_count = connections.get_user_count(&location_id_clone);
+                        info!("User {} joined room {} (total users: {})", username, location_id_clone, user_count);
                         drop(connections);
                         
                         // Update room activity
                         if let Err(e) = state_clone.db.update_room_activity(&location_id_clone, user_count as i32).await {
                             error!("Failed to update room activity: {}", e);
+                        }
+                        
+                        // Check if this is a local chat room
+                        if is_local_chat_room(&location_id_clone) {
+                            info!("Detected local chat room: {}", location_id_clone);
+                            
+                            // Send RoomJoined message for local chat
+                            if let Some((lat, lon)) = parse_coordinates_from_location_id(&location_id_clone) {
+                                let room_joined_msg = serde_json::json!({
+                                    "type": "RoomJoined",
+                                    "room_id": location_id_clone,
+                                    "room_name": generate_room_name(lat, lon),
+                                    "is_new_room": user_count == 1,
+                                    "user_count": user_count,
+                                    "location": {
+                                        "type": "Point",
+                                        "coordinates": [lon, lat]
+                                    }
+                                });
+                                
+                                // Send via the tx channel which will be forwarded to the client
+                                let _ = tx.send(WsMessage::RoomJoined {
+                                    room_id: location_id_clone.clone(),
+                                    room_name: generate_room_name(lat, lon),
+                                    is_new_room: user_count == 1,
+                                    user_count: user_count as i32,
+                                    location: Location::from_coordinates(lat, lon),
+                                });
+                            }
                         }
                         
                         // Send message history
@@ -115,10 +195,12 @@ pub async fn handle_socket(socket: WebSocket, location_id: String, state: AppSta
                     }
                     
                     WsMessage::Message { content } => {
+                        info!("Received message from socket {}: {}", socket_id_clone, content);
                         // Get user info
                         let connections = state_clone.connections.read().await;
                         if let Some(users) = connections.rooms.get(&location_id_clone) {
                             if let Some(user) = users.get(&socket_id_clone) {
+                                info!("Found user {} in room {}", user.username, location_id_clone);
                                 let message = Message {
                                     id: None,
                                     room_id: location_id_clone.clone(),
@@ -152,7 +234,11 @@ pub async fn handle_socket(socket: WebSocket, location_id: String, state: AppSta
                                         });
                                     }
                                 }
+                            } else {
+                                error!("User {} not found in room {}", socket_id_clone, location_id_clone);
                             }
+                        } else {
+                            error!("Room {} not found in connections", location_id_clone);
                         }
                     }
                     
@@ -162,10 +248,20 @@ pub async fn handle_socket(socket: WebSocket, location_id: String, state: AppSta
         }
     });
     
-    // Wait for either task to finish
+    // Wait for any task to finish
     tokio::select! {
-        _ = (&mut send_task) => recv_task.abort(),
-        _ = (&mut recv_task) => send_task.abort(),
+        _ = (&mut send_task) => {
+            recv_task.abort();
+            redis_task.abort();
+        },
+        _ = (&mut recv_task) => {
+            send_task.abort();
+            redis_task.abort();
+        },
+        _ = (&mut redis_task) => {
+            send_task.abort();
+            recv_task.abort();
+        }
     }
     
     // Clean up on disconnect
@@ -196,7 +292,29 @@ async fn broadcast_to_room(
     message: WsMessage,
     exclude_socket: Option<&str>,
 ) {
-    // TODO: Implement actual broadcasting through Redis pub/sub
-    // For now, this is a placeholder
-    info!("Broadcasting to room {}: {:?}", location_id, message);
+    let channel = format!("room:{}", location_id);
+    let broadcast_msg = BroadcastMessage {
+        from_socket_id: exclude_socket.unwrap_or("").to_string(),
+        message,
+    };
+    
+    if let Ok(payload) = serde_json::to_string(&broadcast_msg) {
+        match state.redis.get_async_connection().await {
+            Ok(mut conn) => {
+                match conn.publish::<_, _, ()>(&channel, &payload).await {
+                    Ok(_) => {
+                        info!("Published message to Redis channel: {}", channel);
+                    }
+                    Err(e) => {
+                        error!("Failed to publish to Redis channel {}: {}", channel, e);
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Failed to get Redis connection for broadcasting: {}", e);
+            }
+        }
+    } else {
+        error!("Failed to serialize broadcast message");
+    }
 }

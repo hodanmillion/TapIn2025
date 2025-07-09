@@ -63,4 +63,12 @@ pub enum WsMessage {
     NewMessage(Message),
     MessageHistory { messages: Vec<Message> },
     Error { message: String },
+    // Local chat specific
+    RoomJoined { 
+        room_id: String, 
+        room_name: String, 
+        is_new_room: bool, 
+        user_count: i32,
+        location: crate::local_chat::Location,
+    },
 }

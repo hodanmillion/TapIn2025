@@ -3,6 +3,7 @@ pub mod handlers;
 pub mod websocket;
 pub mod db;
 pub mod errors;
+pub mod local_chat;
 
 pub use models::*;
 pub use handlers::*;

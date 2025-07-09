@@ -1,12 +1,13 @@
 import api from './api';
-import { Location, SearchAddressResponse, NearbyResponse } from '@/types';
+import { Location, NearbyResponse } from '@/types';
 
 export const locationService = {
   async searchAddresses(query: string, limit = 5): Promise<Location[]> {
-    const { data } = await api.get<SearchAddressResponse>('/api/v1/addresses/search', {
-      params: { q: query, limit },
+    const { data } = await api.post<Location[]>('/api/v1/addresses/search', {
+      query,
+      limit,
     });
-    return data.locations || [];
+    return data || [];
   },
 
   async getOrCreateLocation(params: {
@@ -14,7 +15,7 @@ export const locationService = {
     address?: string;
     coordinates?: { latitude: number; longitude: number };
   }): Promise<Location> {
-    const { data } = await api.post<Location>('/api/v1/addresses', params);
+    const { data } = await api.post<Location>('/api/v1/addresses/detail', params);
     return data;
   },
 

@@ -118,3 +118,7 @@ htmlcov/
 .npm/
 .yarn/
 .pnpm-store/
+
+# Debug and test files
+debug-tests/
+e2e-tests/

@@ -16,13 +16,34 @@ from ..auth import get_current_user
 router = APIRouter()
 address_service = AddressService()
 
+@router.get("/test-auth")
+async def test_auth(current_user: dict = Depends(get_current_user)):
+    """Test authentication endpoint"""
+    return {"message": "Auth working!", "user": current_user}
+
+@router.get("/test-no-auth")
+async def test_no_auth():
+    """Test endpoint without auth"""
+    from ..config import settings
+    return {
+        "message": "No auth endpoint working!", 
+        "secret_key_first_10": settings.SECRET_KEY[:10],
+        "secret_key_last_10": settings.SECRET_KEY[-10:]
+    }
+
 @router.post("/search", response_model=List[LocationResponse])
 async def search_addresses(
     request: AddressSearchRequest,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """Search for addresses"""
+
+@router.post("/search-noauth", response_model=List[LocationResponse])
+async def search_addresses_noauth(
+    request: AddressSearchRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Search for addresses without auth"""
     try:
         return await address_service.search_addresses(
             request.query,

@@ -1,16 +1,46 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useLocation } from '@/app/providers/LocationProvider';
+import { useEffect, useRef } from 'react';
 
 export function HomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { requestLocation, currentLocation, locationError, isLoadingLocation } = useLocation();
+  const hasRequestedLocation = useRef(false);
+
+  // Navigate to chat when location becomes available after request
+  useEffect(() => {
+    console.log('HomePage useEffect:', {
+      hasCurrentLocation: !!currentLocation,
+      hasRequestedLocation: hasRequestedLocation.current,
+      isLoadingLocation
+    });
+    
+    if (currentLocation && hasRequestedLocation.current && !isLoadingLocation) {
+      const lat = currentLocation.coords.latitude;
+      const lon = currentLocation.coords.longitude;
+      const locationId = `${lat}_${lon}`;
+      console.log('HomePage: Auto-navigating to:', `/location/${locationId}`);
+      navigate(`/location/${locationId}`);
+      hasRequestedLocation.current = false;
+    }
+  }, [currentLocation, isLoadingLocation, navigate]);
 
   const handleFindNearby = () => {
+    console.log('Find Nearby Chats clicked');
+    console.log('Current location:', currentLocation);
+    
     if (currentLocation) {
-      navigate('/search');
+      // Navigate directly to chat room with coordinates
+      const lat = currentLocation.coords.latitude;
+      const lon = currentLocation.coords.longitude;
+      const locationId = `${lat}_${lon}`;
+      console.log('Navigating to:', `/location/${locationId}`);
+      navigate(`/location/${locationId}`);
     } else {
+      console.log('No location yet, requesting...');
+      hasRequestedLocation.current = true;
       requestLocation();
     }
   };
