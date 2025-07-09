@@ -27,8 +27,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         // Health check
         .route("/health", get(|| async { "OK" }))
-        // WebSocket endpoint
+        // WebSocket endpoints
         .route("/ws/:location_id", get(websocket_handler))
+        .route("/ws/hex/:h3_index", get(hex_websocket_handler))
         // REST endpoints
         .route("/api/messages/:location_id", get(get_messages))
         .route("/api/messages", post(send_message))

@@ -16,6 +16,14 @@ pub async fn websocket_handler(
     ws.on_upgrade(move |socket| handle_socket(socket, location_id, state))
 }
 
+pub async fn hex_websocket_handler(
+    ws: WebSocketUpgrade,
+    Path(h3_index): Path<String>,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_hex_socket(socket, h3_index, state))
+}
+
 #[derive(Deserialize)]
 pub struct GetMessagesQuery {
     limit: Option<i64>,

@@ -7,6 +7,7 @@ from prometheus_client import make_asgi_app
 
 from .database import init_db, close_db
 from .routers import addresses, health, spatial_analysis
+from .api import hex_routes
 from . import test_endpoint, debug_auth
 from .middleware import LoggingMiddleware, RateLimitMiddleware
 from .config import settings
@@ -43,6 +44,7 @@ app.add_middleware(RateLimitMiddleware)
 # Routes
 app.include_router(addresses.router, prefix="/api/v1/addresses", tags=["addresses"])
 app.include_router(spatial_analysis.router, prefix="/api/v1/spatial", tags=["spatial"])
+app.include_router(hex_routes.router)
 app.include_router(health.router, prefix="/health", tags=["health"])
 app.include_router(test_endpoint.router, prefix="/api/v1/test", tags=["test"])
 app.include_router(debug_auth.router, prefix="/api/v1/debug", tags=["debug"])

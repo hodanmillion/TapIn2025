@@ -5,6 +5,7 @@ interface SocketContextType {
   socket: WebSocket | null;
   isConnected: boolean;
   connectToLocation: (locationId: string) => void;
+  connectToHex: (h3Index: string) => void;
   disconnectFromLocation: () => void;
   sendMessage: (message: any) => void;
   onMessage: (handler: (data: any) => void) => void;
@@ -15,6 +16,7 @@ const SocketContext = createContext<SocketContextType>({
   socket: null, 
   isConnected: false,
   connectToLocation: () => {},
+  connectToHex: () => {},
   disconnectFromLocation: () => {},
   sendMessage: () => {},
   onMessage: () => {},
@@ -84,6 +86,64 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     };
   }, [currentLocationId, token, user]);
 
+  const connectToHex = useCallback((h3Index: string) => {
+    if (currentLocationId === h3Index) return;
+    
+    disconnectFromLocation();
+    
+    if (!token || !user) return;
+
+    // WebSocket connection to hex chat service
+    const chatApiUrl = import.meta.env.VITE_CHAT_API_URL || 'http://localhost:3001';
+    const wsProtocol = chatApiUrl.startsWith('https') ? 'wss' : 'ws';
+    const wsHost = chatApiUrl.replace(/^https?:\/\//, '');
+    const wsUrl = `${wsProtocol}://${wsHost}/ws/hex/${h3Index}`;
+    
+    console.log('Connecting to hex WebSocket:', wsUrl);
+    socketRef.current = new WebSocket(wsUrl);
+
+    socketRef.current.onopen = () => {
+      console.log('Hex WebSocket connected');
+      setIsConnected(true);
+      setCurrentLocationId(h3Index);
+      
+      // Send hex join message after connection is established
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify({
+          type: 'JoinHex',
+          data: {
+            h3_index: h3Index,
+            user_info: {
+              user_id: user.id,
+              username: user.username
+            }
+          }
+        }));
+      }
+    };
+    
+    socketRef.current.onclose = () => {
+      console.log('Hex WebSocket disconnected');
+      setIsConnected(false);
+      setCurrentLocationId(null);
+    };
+    
+    socketRef.current.onerror = (error) => {
+      console.error('Hex WebSocket error:', error);
+      setIsConnected(false);
+    };
+    
+    socketRef.current.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('Hex WebSocket message received:', data);
+        messageHandlersRef.current.forEach(handler => handler(data));
+      } catch (error) {
+        console.error('Error parsing hex WebSocket message:', error);
+      }
+    };
+  }, [currentLocationId, token, user]);
+
   const disconnectFromLocation = useCallback(() => {
     if (socketRef.current) {
       socketRef.current.close();
@@ -121,6 +181,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       socket: socketRef.current, 
       isConnected,
       connectToLocation,
+      connectToHex,
       disconnectFromLocation,
       sendMessage,
       onMessage,

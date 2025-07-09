@@ -71,4 +71,13 @@ pub enum WsMessage {
         user_count: i32,
         location: crate::local_chat::Location,
     },
+    // Hex chat specific
+    JoinHex { h3_index: String, user_info: HexUserInfo },
+    HexJoined { h3_index: String, user_count: i32 },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HexUserInfo {
+    pub user_id: String,
+    pub username: String,
 }

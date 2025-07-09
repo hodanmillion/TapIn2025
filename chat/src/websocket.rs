@@ -318,3 +318,251 @@ async fn broadcast_to_room(
         error!("Failed to serialize broadcast message");
     }
 }
+
+pub async fn handle_hex_socket(socket: WebSocket, h3_index: String, state: AppState) {
+    let (mut sender, mut receiver) = socket.split();
+    let socket_id = Uuid::new_v4().to_string();
+    
+    // Channel for sending messages to this client
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<WsMessage>();
+    
+    // Clone necessary data for tasks
+    let socket_id_clone = socket_id.clone();
+    let h3_index_clone = h3_index.clone();
+    let state_clone = state.clone();
+    let tx_clone = tx.clone();
+    let socket_id_for_redis = socket_id.clone();
+    
+    // Create Redis pub/sub connection for this client
+    let redis_client = state.redis.clone();
+    let channel_name = format!("hex:{}", h3_index);
+    
+    // Spawn task to handle Redis pub/sub messages
+    let mut redis_task = tokio::spawn(async move {
+        let mut pubsub: PubSub = match redis_client.get_async_connection().await {
+            Ok(conn) => conn.into_pubsub(),
+            Err(e) => {
+                error!("Failed to create Redis pub/sub connection: {}", e);
+                return;
+            }
+        };
+        
+        // Subscribe to hex channel
+        if let Err(e) = pubsub.subscribe(&channel_name).await {
+            error!("Failed to subscribe to channel {}: {}", channel_name, e);
+            return;
+        }
+        
+        info!("Socket {} subscribed to Redis channel: {}", socket_id_for_redis, channel_name);
+        
+        // Listen for messages
+        let mut pubsub_stream = pubsub.on_message();
+        while let Some(msg) = pubsub_stream.next().await {
+            match msg.get_payload::<String>() {
+                Ok(payload) => {
+                    if let Ok(broadcast_msg) = serde_json::from_str::<BroadcastMessage>(&payload) {
+                        // Skip messages from the same socket
+                        if broadcast_msg.from_socket_id != socket_id_for_redis {
+                            let _ = tx_clone.send(broadcast_msg.message);
+                        }
+                    }
+                }
+                Err(e) => error!("Failed to parse Redis message: {}", e),
+            }
+        }
+    });
+    
+    // Spawn task to forward messages to client
+    let mut send_task = tokio::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            if let Ok(json) = serde_json::to_string(&msg) {
+                if sender.send(WsMsg::Text(json)).await.is_err() {
+                    break;
+                }
+            }
+        }
+    });
+    
+    // Handle incoming messages
+    let mut recv_task = tokio::spawn(async move {
+        while let Some(Ok(WsMsg::Text(text))) = receiver.next().await {
+            if let Ok(msg) = serde_json::from_str::<WsMessage>(&text) {
+                match msg {
+                    WsMessage::JoinHex { h3_index: incoming_h3_index, user_info } => {
+                        info!("User {} joining hex {}", user_info.username, incoming_h3_index);
+                        
+                        // Verify the h3_index matches
+                        if incoming_h3_index != h3_index_clone {
+                            error!("H3 index mismatch: {} != {}", incoming_h3_index, h3_index_clone);
+                            let _ = tx.send(WsMessage::Error {
+                                message: "H3 index mismatch".to_string(),
+                            });
+                            continue;
+                        }
+                        
+                        // Add user to hex room
+                        let user = User {
+                            id: user_info.user_id.clone(),
+                            username: user_info.username.clone(),
+                            socket_id: socket_id_clone.clone(),
+                            location_id: h3_index_clone.clone(), // Use h3_index as location_id for hex rooms
+                        };
+                        
+                        let mut connections = state_clone.connections.write().await;
+                        connections.add_user(h3_index_clone.clone(), socket_id_clone.clone(), user.clone());
+                        let user_count = connections.get_user_count(&h3_index_clone);
+                        info!("User {} joined hex {} (total users: {})", user_info.username, h3_index_clone, user_count);
+                        drop(connections);
+                        
+                        // Update room activity
+                        if let Err(e) = state_clone.db.update_room_activity(&h3_index_clone, user_count as i32).await {
+                            error!("Failed to update room activity: {}", e);
+                        }
+                        
+                        // Send hex join confirmation
+                        let _ = tx.send(WsMessage::HexJoined {
+                            h3_index: h3_index_clone.clone(),
+                            user_count: user_count as i32,
+                        });
+                        
+                        // Send message history
+                        if let Ok(messages) = state_clone.db.get_messages(&h3_index_clone, 50, None).await {
+                            let _ = tx.send(WsMessage::MessageHistory { messages });
+                        }
+                        
+                        // Notify others
+                        broadcast_to_hex(
+                            &state_clone,
+                            &h3_index_clone,
+                            WsMessage::UserJoined {
+                                username: user_info.username,
+                                timestamp: chrono::Utc::now(),
+                            },
+                            Some(&socket_id_clone),
+                        ).await;
+                    }
+                    
+                    WsMessage::Message { content } => {
+                        info!("Received hex message from socket {}: {}", socket_id_clone, content);
+                        // Get user info
+                        let connections = state_clone.connections.read().await;
+                        if let Some(users) = connections.rooms.get(&h3_index_clone) {
+                            if let Some(user) = users.get(&socket_id_clone) {
+                                info!("Found user {} in hex {}", user.username, h3_index_clone);
+                                let message = Message {
+                                    id: None,
+                                    room_id: h3_index_clone.clone(),
+                                    user_id: user.id.clone(),
+                                    username: user.username.clone(),
+                                    content,
+                                    timestamp: chrono::Utc::now(),
+                                    edited_at: None,
+                                    deleted: false,
+                                    reactions: vec![],
+                                };
+                                
+                                // Save to database
+                                match state_clone.db.create_message(&message).await {
+                                    Ok(id) => {
+                                        let mut saved_message = message.clone();
+                                        saved_message.id = Some(id);
+                                        
+                                        // Broadcast to all users in hex
+                                        broadcast_to_hex(
+                                            &state_clone,
+                                            &h3_index_clone,
+                                            WsMessage::NewMessage(saved_message),
+                                            None,
+                                        ).await;
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to save message: {}", e);
+                                        let _ = tx.send(WsMessage::Error {
+                                            message: "Failed to send message".to_string(),
+                                        });
+                                    }
+                                }
+                            } else {
+                                error!("User {} not found in hex {}", socket_id_clone, h3_index_clone);
+                            }
+                        } else {
+                            error!("Hex {} not found in connections", h3_index_clone);
+                        }
+                    }
+                    
+                    _ => {}
+                }
+            }
+        }
+    });
+    
+    // Wait for any task to finish
+    tokio::select! {
+        _ = (&mut send_task) => {
+            recv_task.abort();
+            redis_task.abort();
+        },
+        _ = (&mut recv_task) => {
+            send_task.abort();
+            redis_task.abort();
+        },
+        _ = (&mut redis_task) => {
+            send_task.abort();
+            recv_task.abort();
+        }
+    }
+    
+    // Clean up on disconnect
+    let mut connections = state.connections.write().await;
+    if let Some(user) = connections.remove_user(&h3_index, &socket_id) {
+        let user_count = connections.get_user_count(&h3_index);
+        drop(connections);
+        
+        // Update room activity
+        let _ = state.db.update_room_activity(&h3_index, user_count as i32).await;
+        
+        // Notify others
+        broadcast_to_hex(
+            &state,
+            &h3_index,
+            WsMessage::UserLeft {
+                username: user.username,
+                timestamp: chrono::Utc::now(),
+            },
+            Some(&socket_id),
+        ).await;
+    }
+}
+
+async fn broadcast_to_hex(
+    state: &AppState,
+    h3_index: &str,
+    message: WsMessage,
+    exclude_socket: Option<&str>,
+) {
+    let channel = format!("hex:{}", h3_index);
+    let broadcast_msg = BroadcastMessage {
+        from_socket_id: exclude_socket.unwrap_or("").to_string(),
+        message,
+    };
+    
+    if let Ok(payload) = serde_json::to_string(&broadcast_msg) {
+        match state.redis.get_async_connection().await {
+            Ok(mut conn) => {
+                match conn.publish::<_, _, ()>(&channel, &payload).await {
+                    Ok(_) => {
+                        info!("Published message to Redis channel: {}", channel);
+                    }
+                    Err(e) => {
+                        error!("Failed to publish to Redis channel {}: {}", channel, e);
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Failed to get Redis connection for broadcasting: {}", e);
+            }
+        }
+    } else {
+        error!("Failed to serialize broadcast message");
+    }
+}

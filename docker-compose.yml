@@ -154,7 +154,7 @@ services:
       context: ./address
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: "postgresql+asyncpg://postgres:postgres@postgis:5432/address_db"
+      DATABASE_URL: "postgresql+asyncpg://postgres:postgres@postgis:5432/address_hex_db"
       REDIS_URL: "redis://redis:6379"
       SECRET_KEY: "your-super-secret-jwt-key"
       PORT: 8000
