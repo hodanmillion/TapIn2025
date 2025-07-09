@@ -37,13 +37,7 @@ async def search_addresses(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-
-@router.post("/search-noauth", response_model=List[LocationResponse])
-async def search_addresses_noauth(
-    request: AddressSearchRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    """Search for addresses without auth"""
+    """Search for addresses"""
     try:
         return await address_service.search_addresses(
             request.query,
