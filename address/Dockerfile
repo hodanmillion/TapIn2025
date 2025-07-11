@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     gdal-bin \
     libgdal-dev \
     postgresql-client \
+    netcat-traditional \
     && rm -rf /var/lib/apt/lists/*
 
 # Set GDAL environment variables
@@ -25,12 +26,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Copy and make start script executable
-COPY start.sh .
-RUN chmod +x start.sh
+# Copy entrypoint and migration files
+COPY entrypoint.sh .
+COPY alembic.ini .
+COPY alembic ./alembic
+RUN chmod +x entrypoint.sh
 
 # Expose port
 EXPOSE 8000
 
-# Use the start script
-CMD ["./start.sh"]
+# Use the entrypoint script
+CMD ["./entrypoint.sh"]
