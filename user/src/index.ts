@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import path from 'path';
 import { rateLimit } from 'express-rate-limit';
 import 'express-async-errors';
 import dotenv from 'dotenv';
@@ -60,6 +61,11 @@ app.use('/api', limiter);
 
 // API documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+
+// Serve uploaded files in development
+if (process.env.NODE_ENV === 'development') {
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+}
 
 // Health check
 app.get('/health', (req, res) => {

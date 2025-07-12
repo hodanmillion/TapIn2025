@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { StartConversationButton } from '@/features/dm/components/StartConversationButton';
 import { useState, useEffect } from 'react';
@@ -97,6 +97,9 @@ export function ProfilePage() {
               {displayUser?.bio && (
                 <p className="text-gray-700 mt-2">{displayUser.bio}</p>
               )}
+              {displayUser?.location && (
+                <p className="text-gray-600 text-sm mt-1">📍 {displayUser.location}</p>
+              )}
             </div>
           </div>
 
@@ -126,9 +129,12 @@ export function ProfilePage() {
 
           <div className="mt-6 flex items-center space-x-3">
             {isOwnProfile ? (
-              <button className="px-4 py-2 bg-primary-500 text-white rounded hover:bg-primary-600">
+              <Link 
+                to="/settings"
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 inline-block text-center"
+              >
                 Edit Profile
-              </button>
+              </Link>
             ) : (
               profileUser && (
                 <StartConversationButton 

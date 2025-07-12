@@ -10,7 +10,10 @@ export interface User {
   displayName?: string;
   avatarUrl?: string;
   bio?: string;
+  location?: string;
+  website?: string;
   isVerified?: boolean;
+  isPrivate?: boolean;
   followersCount?: number;
   followingCount?: number;
 }

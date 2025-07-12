@@ -58,42 +58,46 @@ vendor/
 
 # Rust (chat service)
 chat/target/
-chat/Cargo.lock
+target/
 **/*.rs.bk
 *.pdb
+Cargo.lock
 
-# Python (address service)
-address/__pycache__/
-address/*.py[cod]
-address/*$py.class
-address/*.so
-address/.Python
-address/build/
-address/develop-eggs/
-address/dist/
-address/downloads/
-address/eggs/
-address/.eggs/
-address/lib/
-address/lib64/
-address/parts/
-address/sdist/
-address/var/
-address/wheels/
-address/*.egg-info/
-address/.installed.cfg
-address/*.egg
-address/MANIFEST
-address/.pytest_cache/
-address/.coverage
-address/htmlcov/
-address/.tox/
-address/.nox/
-address/.mypy_cache/
-address/.dmypy.json
-address/dmypy.json
-address/.pyre/
+# Python (address service and general)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
 address/address.db
+*.pyc
+.venv/
+venv/
+env/
+ENV/
 
 # React/Vite (frontend)
 frontend/dist/
@@ -122,3 +126,52 @@ htmlcov/
 # Debug and test files
 debug-tests/
 e2e-tests/
+
+# Android/Capacitor build artifacts
+frontend/android/app/build/
+frontend/android/build/
+frontend/android/capacitor-cordova-android-plugins/build/
+frontend/android/local.properties
+frontend/android/.gradle/
+**/build/
+**/local.properties
+*.apk
+*.aab
+*.aar
+*.ap_
+*.dex
+proguard/
+lint-results.html
+lint-results.xml
+
+# Gradle
+.gradle/
+gradle-wrapper.properties
+gradlew
+gradlew.bat
+
+# Capacitor
+frontend/android/app/src/main/assets/public/
+.capacitor/
+capacitor.config.json.bak
+
+# iOS (if added later)
+ios/
+frontend/ios/
+
+# Mobile development
+*.keystore
+*.jks
+keystore.properties
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# Additional build artifacts
+*.tgz
+*.tar.gz
+*.zip
+tmp/
+temp/
+.tmp/

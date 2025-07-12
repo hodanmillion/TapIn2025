@@ -167,17 +167,28 @@ profileRouter.get('/:username',
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check if private profile and not following
-    if (user.isPrivate && user.authId !== req.user!.id) {
-      const following = await prisma.follow.findUnique({
+    // Check if current user is following this user
+    const currentUser = await prisma.user.findUnique({
+      where: { authId: req.user!.id },
+    });
+
+    let isFollowing = false;
+    let following = null;
+
+    if (currentUser && currentUser.id !== user.id) {
+      following = await prisma.follow.findUnique({
         where: {
           followerId_followingId: {
-            followerId: req.user!.id,
+            followerId: currentUser.id,
             followingId: user.id,
           },
         },
       });
+      isFollowing = !!following;
+    }
 
+    // Check if private profile and not following
+    if (user.isPrivate && user.authId !== req.user!.id) {
       if (!following) {
         // Return limited info for private profiles
         return res.json({
@@ -186,11 +197,15 @@ profileRouter.get('/:username',
           displayName: user.displayName,
           avatarUrl: user.avatarUrl,
           isPrivate: true,
+          isFollowing: false,
           _count: user._count,
         });
       }
     }
 
-    res.json(user);
+    res.json({
+      ...user,
+      isFollowing,
+    });
   }
 );
