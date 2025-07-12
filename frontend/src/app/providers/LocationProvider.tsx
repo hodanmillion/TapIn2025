@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useCallback } from 'react';
+import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 
 interface LocationContextType {
   currentLocation: GeolocationPosition | null;
@@ -28,8 +30,20 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
-  const requestLocation = useCallback(() => {
+  const requestLocation = useCallback(async () => {
     console.log('LocationProvider: requestLocation called');
+    
+    // For development on localhost, always use mock location
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      console.log('LocationProvider: Using mock location for localhost development');
+      setIsLoadingLocation(true);
+      setTimeout(() => {
+        console.log('LocationProvider: Mock location set', MOCK_LOCATION.coords);
+        setCurrentLocation(MOCK_LOCATION);
+        setIsLoadingLocation(false);
+      }, 1000);
+      return;
+    }
     
     // Check for mock location in development
     if (import.meta.env.DEV && window.location.search.includes('mockLocation=true')) {
@@ -42,26 +56,83 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       }, 1000);
       return;
     }
-    
-    if (!navigator.geolocation) {
-      console.error('LocationProvider: Geolocation not supported');
-      setLocationError('Geolocation is not supported');
-      return;
-    }
 
     setIsLoadingLocation(true);
     setLocationError(null); // Clear any previous errors
     
-    console.log('LocationProvider: Calling getCurrentPosition...');
-    
-    // Try with less strict options first
-    const options: PositionOptions = {
-      enableHighAccuracy: false, // Start with low accuracy
-      timeout: 10000, // 10 seconds
-      maximumAge: 300000 // Accept positions up to 5 minutes old
-    };
-    
-    navigator.geolocation.getCurrentPosition(
+    // Use Capacitor Geolocation for mobile, browser API for web
+    if (Capacitor.isNativePlatform()) {
+      console.log('LocationProvider: Using Capacitor Geolocation...');
+      
+      try {
+        // Request permissions first
+        const permissions = await Geolocation.requestPermissions();
+        console.log('LocationProvider: Permissions:', permissions);
+        
+        if (permissions.location === 'denied') {
+          setLocationError('Location permission denied. Please enable location access in your device settings.');
+          setIsLoadingLocation(false);
+          return;
+        }
+        
+        // Get current position
+        const position = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 300000
+        });
+        
+        console.log('LocationProvider: Capacitor success!', position);
+        
+        // Convert Capacitor position to browser GeolocationPosition format
+        const browserPosition = {
+          coords: {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            altitude: position.coords.altitude,
+            altitudeAccuracy: position.coords.altitudeAccuracy || null,
+            heading: position.coords.heading,
+            speed: position.coords.speed,
+            toJSON: () => ({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              altitude: position.coords.altitude,
+              altitudeAccuracy: position.coords.altitudeAccuracy || null,
+              heading: position.coords.heading,
+              speed: position.coords.speed
+            })
+          },
+          timestamp: position.timestamp
+        } as GeolocationPosition;
+        
+        setCurrentLocation(browserPosition);
+        setIsLoadingLocation(false);
+      } catch (error: any) {
+        console.error('LocationProvider: Capacitor error', error);
+        setLocationError(error.message || 'Failed to get location');
+        setIsLoadingLocation(false);
+      }
+    } else {
+      // Use browser geolocation for web
+      console.log('LocationProvider: Using browser geolocation...');
+      
+      if (!navigator.geolocation) {
+        console.error('LocationProvider: Geolocation not supported');
+        setLocationError('Geolocation is not supported');
+        setIsLoadingLocation(false);
+        return;
+      }
+      
+      // Try with less strict options first
+      const options: PositionOptions = {
+        enableHighAccuracy: false, // Start with low accuracy
+        timeout: 10000, // 10 seconds
+        maximumAge: 300000 // Accept positions up to 5 minutes old
+      };
+      
+      navigator.geolocation.getCurrentPosition(
       (position) => {
         console.log('LocationProvider: Success!', {
           latitude: position.coords.latitude,
@@ -134,6 +205,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       },
       options
     );
+    }
   }, []);
 
   return (

@@ -33,6 +33,12 @@ export function MainLayout() {
                   Search
                 </Link>
                 <Link
+                  to="/messages"
+                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-gray-700"
+                >
+                  Messages
+                </Link>
+                <Link
                   to={`/profile/${user?.username}`}
                   className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-gray-700"
                 >

@@ -18,3 +18,7 @@ export const cacheService = new CacheService(redis);
 export const eventService = new EventService();
 export const queueService = new QueueService();
 export const s3Service = new S3Service();
+
+// Export other services
+export * from './block.service';
+export * from './conversation.service';

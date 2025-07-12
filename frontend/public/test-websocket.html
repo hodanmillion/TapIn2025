@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <button onclick="testWebSocket()">Test WebSocket</button>
+    <div id="output"></div>
+
+    <script>
+        function log(message) {
+            const output = document.getElementById('output');
+            output.innerHTML += `<p>${new Date().toLocaleTimeString()}: ${message}</p>`;
+        }
+
+        function testWebSocket() {
+            const baseUrl = window.location.origin;
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws/hex/test123`;
+            
+            log(`Attempting to connect to: ${wsUrl}`);
+            
+            try {
+                const ws = new WebSocket(wsUrl);
+                
+                ws.onopen = function() {
+                    log('WebSocket connected successfully!');
+                    
+                    // Send test join message
+                    const joinMessage = {
+                        type: 'JoinHex',
+                        data: {
+                            h3_index: 'test123',
+                            user_info: {
+                                user_id: 'test-user',
+                                username: 'testuser'
+                            }
+                        }
+                    };
+                    
+                    ws.send(JSON.stringify(joinMessage));
+                    log('Sent join message');
+                };
+                
+                ws.onmessage = function(event) {
+                    log(`Received: ${event.data}`);
+                };
+                
+                ws.onerror = function(error) {
+                    log(`WebSocket error: ${error}`);
+                    console.error('WebSocket error:', error);
+                };
+                
+                ws.onclose = function(event) {
+                    log(`WebSocket closed: code=${event.code}, reason=${event.reason}`);
+                };
+                
+            } catch (error) {
+                log(`Failed to create WebSocket: ${error.message}`);
+                console.error('WebSocket creation error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

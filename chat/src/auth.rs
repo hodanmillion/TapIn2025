@@ -9,10 +9,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub user_id: String,
+    pub user_id: String, // user_id from auth service
     pub email: String,
     pub username: String,
     pub exp: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iat: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jti: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -75,9 +79,17 @@ where
             .map_err(|_| AuthError::InvalidToken)?;
 
         Ok(AuthUser {
-            user_id: token_data.claims.user_id,
+            user_id: token_data.claims.user_id.clone(),
             email: token_data.claims.email,
             username: token_data.claims.username,
         })
     }
+}
+
+pub fn verify_token(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+    let secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "your-secret-key-here".to_string());
+    let decoding_key = DecodingKey::from_secret(secret.as_bytes());
+    
+    let token_data = decode::<Claims>(token, &decoding_key, &Validation::default())?;
+    Ok(token_data.claims)
 }

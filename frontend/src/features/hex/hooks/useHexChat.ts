@@ -38,13 +38,19 @@ export function useHexChat() {
   const [loading, setLoading] = useState(false);
   
   const joinNearbyHex = useCallback(async (resolution: number = 8) => {
+    console.log('joinNearbyHex called, currentLocation:', currentLocation);
     if (!currentLocation) {
+      console.log('No location available, requesting...');
       requestLocation();
       return;
     }
     
     setLoading(true);
     try {
+      // Log the API base URL for debugging
+      console.log('API Base URL:', import.meta.env.VITE_API_BASE_URL || 'Using relative path');
+      console.log('Current location:', currentLocation);
+      
       const response = await hexService.joinHex(
         currentLocation.coords.latitude,
         currentLocation.coords.longitude,
@@ -60,9 +66,22 @@ export function useHexChat() {
       // Connect WebSocket to hex
       connectToHex(response.hex_cell.h3_index);
       
-    } catch (error) {
-      toast.error('Failed to join neighborhood chat');
-      console.error('Join hex error:', error);
+    } catch (error: any) {
+      console.error('Join hex error:', {
+        error,
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config
+      });
+      
+      if (error.message === 'Network Error') {
+        toast.error('Cannot connect to server. Please check your network connection.');
+      } else if (error.response?.status === 404) {
+        toast.error('Hex service not found. Please ensure all services are running.');
+      } else {
+        toast.error(error.response?.data?.detail || 'Failed to join neighborhood chat');
+      }
     } finally {
       setLoading(false);
     }

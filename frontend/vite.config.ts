@@ -62,6 +62,10 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      '/api/v1/hex': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
     },
   },
 });

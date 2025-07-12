@@ -13,6 +13,7 @@ import (
     "auth-service/internal/database"
     "auth-service/internal/handlers"
     "auth-service/internal/middleware"
+    "auth-service/internal/rabbitmq"
     "auth-service/internal/redis"
     "auth-service/internal/services"
 
@@ -48,8 +49,15 @@ func main() {
     redisClient := redis.New(cfg.RedisURL)
     defer redisClient.Close()
 
+    // Initialize RabbitMQ
+    rabbitMQ, err := rabbitmq.New(cfg.RabbitMQURL)
+    if err != nil {
+        sugar.Fatalf("Failed to connect to RabbitMQ: %v", err)
+    }
+    defer rabbitMQ.Close()
+
     // Initialize services
-    authService := services.NewAuthService(db, redisClient, cfg, sugar)
+    authService := services.NewAuthService(db, redisClient, cfg, sugar, rabbitMQ)
     userService := services.NewUserService(db, sugar)
     tokenService := services.NewTokenService(cfg.JWTSecret, cfg.JWTExpiry, redisClient, sugar)
 
@@ -119,6 +127,9 @@ func setupRouter(
     {
         auth := v1.Group("/auth")
         {
+            auth.GET("/health", func(c *gin.Context) {
+                c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+            })
             auth.POST("/register", authHandler.Register)
             auth.POST("/login", authHandler.Login)
             auth.POST("/refresh", authHandler.RefreshToken)

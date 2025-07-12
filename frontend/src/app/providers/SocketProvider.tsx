@@ -129,7 +129,13 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     };
     
     socketRef.current.onerror = (error) => {
-      console.error('Hex WebSocket error:', error);
+      console.error('Hex WebSocket error:', {
+        error,
+        url: wsUrl,
+        readyState: socketRef.current?.readyState,
+        protocol: wsProtocol,
+        host: wsHost
+      });
       setIsConnected(false);
     };
     

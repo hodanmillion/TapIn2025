@@ -3,8 +3,12 @@ import { body, param, query } from 'express-validator';
 import { prisma } from '../services';
 import { eventService, cacheService } from '../services';
 import { PaginationQuery } from '../types';
+import { blockRouter } from './social.block';
 
 export const socialRouter = Router();
+
+// Mount block routes
+socialRouter.use(blockRouter);
 
 /**
  * @swagger

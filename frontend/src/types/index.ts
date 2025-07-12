@@ -123,3 +123,53 @@ export interface ErrorBoundaryState {
   hasError: boolean;
   error?: Error;
 }
+
+// Direct Message types
+export interface Conversation {
+  id: string;
+  participants: ConversationParticipant[];
+  lastMessage?: string;
+  lastMessageAt?: string;
+  unreadCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationParticipant {
+  userId: string;
+  user: {
+    id: string;
+    username: string;
+    displayName?: string;
+    avatarUrl?: string;
+    isVerified?: boolean;
+  };
+  joinedAt: string;
+  leftAt?: string;
+}
+
+export interface DirectMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderUsername: string;
+  content: string;
+  timestamp: string;
+  editedAt?: string;
+  deleted: boolean;
+  readBy: string[];
+}
+
+export interface CreateConversationRequest {
+  userId: string;
+}
+
+export interface BlockUserRequest {
+  userId: string;
+  reason?: string;
+}
+
+export interface DMWebSocketMessage {
+  type: 'JoinDM' | 'DMMessage' | 'DMTyping' | 'DMRead' | 'DMJoined' | 'NewMessage' | 'MessageHistory' | 'Typing' | 'Error';
+  data: any;
+}

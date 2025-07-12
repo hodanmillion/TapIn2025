@@ -6,6 +6,7 @@ export function HomePage() {
   const { joinNearbyHex, loading } = useHexChat();
   
   const handleTapIn = () => {
+    console.log('TAP IN button clicked');
     // Automatically use neighborhood resolution (8) for ~700m radius
     joinNearbyHex(8);
   };

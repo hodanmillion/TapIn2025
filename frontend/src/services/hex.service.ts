@@ -38,7 +38,15 @@ export interface HexResolutionsResponse {
 
 class HexService {
   async joinHex(lat: number, lng: number, resolution: number = 8): Promise<HexJoinResponse> {
-    const response = await api.post('/api/v1/hex/join', undefined, {
+    const url = '/api/v1/hex/join';
+    console.log('Hex join request:', {
+      url,
+      baseURL: api.defaults.baseURL,
+      fullURL: `${api.defaults.baseURL}${url}`,
+      params: { lat, lng, resolution }
+    });
+    
+    const response = await api.post(url, undefined, {
       params: { lat, lng, resolution },
     });
     return response.data;

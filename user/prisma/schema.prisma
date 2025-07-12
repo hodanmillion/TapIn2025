@@ -45,6 +45,7 @@ model User {
   blockedBy     Block[]   @relation("blocked")
   interests     UserInterest[]
   badges        UserBadge[]
+  conversations ConversationParticipant[]
   
   @@index([username])
   @@index([authId])
@@ -137,4 +138,39 @@ model UserBadge {
   badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
   
   @@id([userId, badgeId])
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Participants
+  participants ConversationParticipant[]
+  
+  // Last message info (denormalized for performance)
+  lastMessageAt   DateTime?
+  lastMessageText String?
+  lastMessageBy   String? // User ID
+  
+  @@index([lastMessageAt])
+}
+
+model ConversationParticipant {
+  id             String   @id @default(uuid())
+  conversationId String
+  userId         String
+  
+  // Participant settings
+  hasReadLatest  Boolean  @default(false)
+  mutedUntil     DateTime?
+  joinedAt       DateTime @default(now())
+  leftAt         DateTime?
+  
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
 }

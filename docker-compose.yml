@@ -90,15 +90,18 @@ services:
     environment:
       DATABASE_URL: "postgres://postgres:postgres@postgres:5432/auth_db?sslmode=disable"
       REDIS_URL: "redis://redis:6379"
+      RABBITMQ_URL: "amqp://admin:admin@rabbitmq:5672/"
       JWT_SECRET: "your-super-secret-jwt-key"
       JWT_EXPIRY: "24h"
       PORT: 8080
       ENVIRONMENT: "development"
-      ALLOWED_ORIGINS: "http://localhost,http://frontend"
+      ALLOWED_ORIGINS: "*"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     ports:
       - "8080:8080"
@@ -139,6 +142,7 @@ services:
     environment:
       MONGODB_URI: "mongodb://admin:admin@mongodb:27017/chat_db?authSource=admin"
       REDIS_URI: "redis://redis:6379"
+      JWT_SECRET: "your-super-secret-jwt-key"
       PORT: 3001
     depends_on:
       mongodb:
@@ -160,7 +164,7 @@ services:
       SECRET_KEY: "your-super-secret-jwt-key"
       PORT: 8000
       DEBUG: "true"
-      ALLOWED_ORIGINS: '["http://localhost", "http://frontend"]'
+      ALLOWED_ORIGINS: '["*"]'
     depends_on:
       postgis:
         condition: service_healthy

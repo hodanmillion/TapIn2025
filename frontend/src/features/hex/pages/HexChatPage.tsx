@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useHexChat } from '../hooks/useHexChat';
 import { HexMap } from '../components/HexMap';
 import { NeighborList } from '../components/NeighborList';
@@ -163,7 +163,17 @@ export function HexChatPage() {
                         : 'bg-gray-200 text-gray-900'
                     }`}
                   >
-                    <p className="text-sm font-semibold">{message.username}</p>
+                    {message.user_id !== user?.id ? (
+                      <Link 
+                        to={`/profile/${message.username}`}
+                        className="text-sm font-semibold hover:underline cursor-pointer block mb-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {message.username}
+                      </Link>
+                    ) : (
+                      <p className="text-sm font-semibold mb-1">{message.username}</p>
+                    )}
                     <p>{message.content}</p>
                     <p className="text-xs opacity-75 mt-1">
                       {new Date(message.timestamp).toLocaleTimeString()}

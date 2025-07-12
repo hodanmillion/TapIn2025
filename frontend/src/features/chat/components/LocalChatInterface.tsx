@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useSocket } from '@/app/providers/SocketProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useGeolocation } from '@/shared/hooks/useGeolocation';
@@ -240,7 +241,13 @@ export function LocalChatInterface() {
                 }`}
               >
                 {message.user_id !== user?.id && (
-                  <p className="text-sm font-semibold mb-1 opacity-75">{message.username}</p>
+                  <Link 
+                    to={`/profile/${message.username}`}
+                    className="text-sm font-semibold mb-1 opacity-75 hover:opacity-100 hover:underline cursor-pointer block"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {message.username}
+                  </Link>
                 )}
                 <p>{message.content}</p>
                 <p className="text-xs opacity-75 mt-1">

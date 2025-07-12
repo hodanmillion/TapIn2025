@@ -10,6 +10,7 @@ type Config struct {
     Environment    string
     DatabaseURL    string
     RedisURL       string
+    RabbitMQURL    string
     JWTSecret      string
     JWTExpiry      time.Duration
     RefreshExpiry  time.Duration
@@ -58,6 +59,7 @@ func Load() (*Config, error) {
         Environment:    viper.GetString("environment"),
         DatabaseURL:    viper.GetString("database_url"),
         RedisURL:       viper.GetString("redis_url"),
+        RabbitMQURL:    viper.GetString("rabbitmq_url"),
         JWTSecret:      viper.GetString("jwt_secret"),
         JWTExpiry:      jwtExpiry,
         RefreshExpiry:  refreshExpiry,

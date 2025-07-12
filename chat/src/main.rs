@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 use tower_http::cors::CorsLayer;
 use tracing::{info, error};
 
-use chat_service::{AppState, handlers::*, websocket::*};
+use chat_service::{AppState, handlers::*, websocket::*, dm::*};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -30,11 +30,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // WebSocket endpoints
         .route("/ws/:location_id", get(websocket_handler))
         .route("/ws/hex/:h3_index", get(hex_websocket_handler))
+        .route("/ws/dm/:conversation_id", get(dm_websocket_handler))
         // REST endpoints
         .route("/api/messages/:location_id", get(get_messages))
         .route("/api/messages", post(send_message))
         .route("/api/rooms/:location_id", get(get_room_info))
         .route("/api/rooms/:location_id/join", post(join_room))
+        .route("/api/dm/:conversation_id/messages", get(get_dm_messages_handler))
         .layer(CorsLayer::permissive())
         .with_state(app_state);
 

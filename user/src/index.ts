@@ -15,6 +15,7 @@ import { socialRouter } from './routes/social';
 import { settingsRouter } from './routes/settings';
 import { searchRouter } from './routes/search';
 import { uploadRouter } from './routes/upload';
+import { conversationsRouter } from './routes/conversations';
 import { prisma, redis, cacheService, eventService, queueService } from './services';
 
 dotenv.config();
@@ -71,6 +72,7 @@ app.use('/api/v1/social', authMiddleware, socialRouter);
 app.use('/api/v1/settings', authMiddleware, settingsRouter);
 app.use('/api/v1/search', authMiddleware, searchRouter);
 app.use('/api/v1/upload', authMiddleware, uploadRouter);
+app.use('/api/v1/conversations', authMiddleware, conversationsRouter);
 
 // Error handler
 app.use(errorHandler);
@@ -89,6 +91,8 @@ async function start() {
     try {
       await eventService.connect();
       logger.info('Connected to RabbitMQ');
+      // Start consuming events
+      await eventService.startConsumer();
     } catch (error) {
       logger.warn('RabbitMQ not available, events disabled:', (error as Error).message);
     }

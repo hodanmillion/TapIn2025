@@ -86,6 +86,16 @@ export function LoginPage() {
               Don't have an account? Sign up
             </Link>
           </div>
+          
+          {/* Temporary debug links */}
+          <div className="mt-4 text-center space-y-2">
+            <Link to="/network-test" className="block text-blue-600 hover:text-blue-500 underline">
+              Network Test
+            </Link>
+            <Link to="/debug" className="block text-blue-600 hover:text-blue-500 underline">
+              Debug Page
+            </Link>
+          </div>
         </form>
       </div>
     </div>

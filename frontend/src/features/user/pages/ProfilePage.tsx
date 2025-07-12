@@ -1,44 +1,143 @@
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { StartConversationButton } from '@/features/dm/components/StartConversationButton';
+import { useState, useEffect } from 'react';
 
 export function ProfilePage() {
   const { username } = useParams<{ username: string }>();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const [profileUser, setProfileUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const isOwnProfile = user?.username === username;
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!username || !token) return;
+      
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // Fetch the actual user profile
+        const response = await fetch(`/api/v1/profile/${username}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setProfileUser(data);
+        } else if (response.status === 404) {
+          setError('User not found');
+        } else {
+          setError('Failed to load profile');
+        }
+      } catch (error) {
+        console.error('Failed to load profile:', error);
+        setError('Failed to load profile');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [username, token]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.history.back()} 
+            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const displayUser = profileUser || user;
+  const displayName = displayUser?.displayName || displayUser?.username || username;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center space-x-4">
-            <div className="w-20 h-20 bg-gray-300 rounded-full flex items-center justify-center">
-              <span className="text-2xl font-semibold text-gray-600">
-                {username?.charAt(0).toUpperCase()}
-              </span>
-            </div>
+            {displayUser?.avatarUrl ? (
+              <img 
+                src={displayUser.avatarUrl} 
+                alt={displayName}
+                className="w-20 h-20 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-20 h-20 bg-gray-300 rounded-full flex items-center justify-center">
+                <span className="text-2xl font-semibold text-gray-600">
+                  {displayName?.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
             <div>
-              <h1 className="text-2xl font-bold">{username}</h1>
-              <p className="text-gray-600">@{username}</p>
+              <h1 className="text-2xl font-bold">{displayName}</h1>
+              <p className="text-gray-600">@{displayUser?.username || username}</p>
+              {displayUser?.bio && (
+                <p className="text-gray-700 mt-2">{displayUser.bio}</p>
+              )}
             </div>
           </div>
 
-          {isOwnProfile && (
+          {isOwnProfile && user && (
             <div className="mt-6">
-              <p className="text-gray-700">Email: {user?.email}</p>
+              <p className="text-gray-700">Email: {user.email}</p>
               <p className="text-gray-700">
-                Member since: {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
+                Member since: {displayUser?.createdAt ? new Date(displayUser.createdAt).toLocaleDateString() : 'Unknown'}
               </p>
             </div>
           )}
 
-          {isOwnProfile && (
-            <div className="mt-6">
+          {displayUser && (
+            <div className="mt-6 border-t pt-4">
+              <div className="flex space-x-6 text-sm">
+                <div>
+                  <span className="font-semibold">{displayUser._count?.followers || 0}</span>
+                  <span className="text-gray-600 ml-1">followers</span>
+                </div>
+                <div>
+                  <span className="font-semibold">{displayUser._count?.following || 0}</span>
+                  <span className="text-gray-600 ml-1">following</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 flex items-center space-x-3">
+            {isOwnProfile ? (
               <button className="px-4 py-2 bg-primary-500 text-white rounded hover:bg-primary-600">
                 Edit Profile
               </button>
-            </div>
-          )}
+            ) : (
+              profileUser && (
+                <StartConversationButton 
+                  userId={profileUser.id} 
+                  username={profileUser.username} 
+                />
+              )
+            )}
+          </div>
         </div>
       </div>
     </div>

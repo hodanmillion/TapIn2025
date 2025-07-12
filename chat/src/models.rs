@@ -74,10 +74,43 @@ pub enum WsMessage {
     // Hex chat specific
     JoinHex { h3_index: String, user_info: HexUserInfo },
     HexJoined { h3_index: String, user_count: i32 },
+    // DM specific
+    JoinDM { conversation_id: String, user_id: String, username: String, token: String },
+    DMJoined { conversation_id: String, participant_count: i32 },
+    DMMessage { conversation_id: String, content: String },
+    DMTyping { conversation_id: String, is_typing: bool },
+    DMRead { conversation_id: String, user_id: String },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HexUserInfo {
     pub user_id: String,
     pub username: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DirectMessage {
+    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<ObjectId>,
+    pub conversation_id: String,
+    pub sender_id: String,
+    pub sender_username: String,
+    pub content: String,
+    pub timestamp: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub edited_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub deleted: bool,
+    #[serde(default)]
+    pub read_by: Vec<String>, // User IDs who have read this message
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DMConversation {
+    #[serde(rename = "_id")]
+    pub id: String, // conversation_id from user service
+    pub participants: Vec<String>, // User IDs
+    pub last_message: Option<DirectMessage>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }

@@ -10,6 +10,7 @@ import (
 
     "auth-service/internal/config"
     "auth-service/internal/database"
+    "auth-service/internal/events"
     "auth-service/internal/models"
     "auth-service/internal/redis"
 
@@ -28,18 +29,24 @@ var (
 )
 
 type AuthService struct {
-    db     *database.DB
-    redis  *redis.Client
-    config *config.Config
-    logger *zap.SugaredLogger
+    db       *database.DB
+    redis    *redis.Client
+    config   *config.Config
+    logger   *zap.SugaredLogger
+    rabbitMQ EventPublisher
 }
 
-func NewAuthService(db *database.DB, redis *redis.Client, config *config.Config, logger *zap.SugaredLogger) *AuthService {
+type EventPublisher interface {
+    PublishUserEvent(event *events.UserEvent) error
+}
+
+func NewAuthService(db *database.DB, redis *redis.Client, config *config.Config, logger *zap.SugaredLogger, rabbitMQ EventPublisher) *AuthService {
     return &AuthService{
-        db:     db,
-        redis:  redis,
-        config: config,
-        logger: logger,
+        db:       db,
+        redis:    redis,
+        config:   config,
+        logger:   logger,
+        rabbitMQ: rabbitMQ,
     }
 }
 
@@ -93,6 +100,14 @@ func (s *AuthService) Register(ctx context.Context, req *models.RegisterRequest)
 
     // Send verification email (implement email service)
     // s.emailService.SendVerificationEmail(user.Email, emailToken)
+
+    // Publish user registration event
+    event := events.NewUserEvent(events.UserRegister, user.ID.String(), user.Username)
+    event.Data["email"] = user.Email
+    if err := s.rabbitMQ.PublishUserEvent(event); err != nil {
+        s.logger.Errorf("Failed to publish user registration event: %v", err)
+        // Don't fail the registration if event publishing fails
+    }
 
     return user, nil
 }

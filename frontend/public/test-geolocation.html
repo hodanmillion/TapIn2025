@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Geolocation Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h1>Geolocation Test</h1>
+    <button onclick="testGeolocation()" style="padding: 20px; font-size: 18px;">Test Geolocation</button>
+    <div id="output" style="margin-top: 20px; white-space: pre-wrap;"></div>
+
+    <script>
+        function log(message) {
+            const output = document.getElementById('output');
+            output.textContent += message + '\n';
+            console.log(message);
+        }
+
+        function testGeolocation() {
+            log('Testing geolocation...');
+            
+            if (!navigator.geolocation) {
+                log('ERROR: Geolocation is not supported by this browser');
+                return;
+            }
+            
+            log('Geolocation is supported, requesting position...');
+            
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    log('SUCCESS! Got position:');
+                    log(`Latitude: ${position.coords.latitude}`);
+                    log(`Longitude: ${position.coords.longitude}`);
+                    log(`Accuracy: ${position.coords.accuracy} meters`);
+                },
+                function(error) {
+                    log(`ERROR: ${error.message}`);
+                    log(`Error code: ${error.code}`);
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            log('User denied the request for Geolocation.');
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            log('Location information is unavailable.');
+                            break;
+                        case error.TIMEOUT:
+                            log('The request to get user location timed out.');
+                            break;
+                    }
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+    </script>
+</body>
+</html>
