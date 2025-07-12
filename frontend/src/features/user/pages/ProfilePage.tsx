@@ -2,6 +2,8 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { StartConversationButton } from '@/features/dm/components/StartConversationButton';
 import { useState, useEffect } from 'react';
+import { userService } from '@/services/user.service';
+import toast from 'react-hot-toast';
 
 export function ProfilePage() {
   const { username } = useParams<{ username: string }>();
@@ -9,6 +11,8 @@ export function ProfilePage() {
   const [profileUser, setProfileUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
 
   const isOwnProfile = user?.username === username;
 
@@ -30,6 +34,7 @@ export function ProfilePage() {
         if (response.ok) {
           const data = await response.json();
           setProfileUser(data);
+          setIsFollowing(data.isFollowing || false);
         } else if (response.status === 404) {
           setError('User not found');
         } else {
@@ -72,6 +77,42 @@ export function ProfilePage() {
 
   const displayUser = profileUser || user;
   const displayName = displayUser?.displayName || displayUser?.username || username;
+
+  const handleFollowToggle = async () => {
+    if (!profileUser) return;
+    
+    try {
+      setIsFollowLoading(true);
+      if (isFollowing) {
+        await userService.unfollowUser(profileUser.id);
+        setIsFollowing(false);
+        setProfileUser({
+          ...profileUser,
+          _count: {
+            ...profileUser._count,
+            followers: Math.max(0, (profileUser._count?.followers || 0) - 1)
+          }
+        });
+        toast.success('Unfollowed successfully');
+      } else {
+        await userService.followUser(profileUser.id);
+        setIsFollowing(true);
+        setProfileUser({
+          ...profileUser,
+          _count: {
+            ...profileUser._count,
+            followers: (profileUser._count?.followers || 0) + 1
+          }
+        });
+        toast.success('Followed successfully');
+      }
+    } catch (error) {
+      console.error('Failed to toggle follow:', error);
+      toast.error(isFollowing ? 'Failed to unfollow' : 'Failed to follow');
+    } finally {
+      setIsFollowLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -137,10 +178,30 @@ export function ProfilePage() {
               </Link>
             ) : (
               profileUser && (
-                <StartConversationButton 
-                  userId={profileUser.id} 
-                  username={profileUser.username} 
-                />
+                <>
+                  <button
+                    onClick={handleFollowToggle}
+                    disabled={isFollowLoading}
+                    className={`px-4 py-2 rounded font-medium transition-colors ${
+                      isFollowing 
+                        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' 
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {isFollowLoading ? (
+                      <span className="flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                        {isFollowing ? 'Unfollowing...' : 'Following...'}
+                      </span>
+                    ) : (
+                      isFollowing ? 'Unfollow' : 'Follow'
+                    )}
+                  </button>
+                  <StartConversationButton 
+                    userId={profileUser.id} 
+                    username={profileUser.username} 
+                  />
+                </>
               )
             )}
           </div>
