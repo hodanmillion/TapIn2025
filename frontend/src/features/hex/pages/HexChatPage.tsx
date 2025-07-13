@@ -7,12 +7,15 @@ import { ResolutionSelector } from '../components/ResolutionSelector';
 import { useSocket } from '@/app/providers/SocketProvider';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { Message } from '@/types';
+import { chatService } from '@/services/chat.service';
+import { formatMessageTime } from '@/utils/dateHelpers';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export function HexChatPage() {
   const { h3Index } = useParams<{ h3Index: string }>();
   const { user } = useAuth();
-  const { isConnected, sendMessage: sendSocketMessage, onMessage, offMessage } = useSocket();
+  const { isConnected, connectToHex, sendMessage: sendSocketMessage, onMessage, offMessage } = useSocket();
   const { 
     currentHex, 
     neighbors, 
@@ -23,21 +26,52 @@ export function HexChatPage() {
   const [showMap, setShowMap] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   useEffect(() => {
     if (h3Index) {
+      connectToHex(h3Index);
       getHexInfo(h3Index);
+      // Load initial messages
+      loadMessages();
     }
-  }, [h3Index, getHexInfo]);
+  }, [h3Index, getHexInfo, connectToHex]);
 
   useEffect(() => {
     const handleMessage = (data: any) => {
       switch (data.type) {
         case 'NewMessage':
-          setMessages((prev) => [...prev, data.data as Message]);
+          const msgData = data.data;
+          const transformedMessage: Message = {
+            id: msgData._id?.$oid || msgData._id || msgData.id,
+            room_id: msgData.room_id,
+            user_id: msgData.user_id,
+            username: msgData.username,
+            content: msgData.content,
+            timestamp: msgData.timestamp?.$date?.$numberLong 
+              ? new Date(parseInt(msgData.timestamp.$date.$numberLong)).toISOString()
+              : msgData.timestamp || new Date().toISOString(),
+            edited_at: msgData.edited_at || undefined,
+            deleted: msgData.deleted || false,
+            reactions: msgData.reactions || []
+          };
+          setMessages((prev) => [...prev, transformedMessage]);
           break;
         case 'MessageHistory':
-          setMessages(data.data.messages);
+          const transformedHistory = (data.data?.messages || []).map((msg: any) => ({
+            id: msg._id?.$oid || msg._id || msg.id,
+            room_id: msg.room_id,
+            user_id: msg.user_id,
+            username: msg.username,
+            content: msg.content,
+            timestamp: msg.timestamp?.$date?.$numberLong 
+              ? new Date(parseInt(msg.timestamp.$date.$numberLong)).toISOString()
+              : msg.timestamp || new Date().toISOString(),
+            edited_at: msg.edited_at || undefined,
+            deleted: msg.deleted || false,
+            reactions: msg.reactions || []
+          }));
+          setMessages(transformedHistory);
           break;
         case 'UserJoined':
           toast.success(`${data.data.username} joined the hex chat`);
@@ -55,8 +89,22 @@ export function HexChatPage() {
     };
 
     onMessage(handleMessage);
-    return () => offMessage(handleMessage);
+    return () => {
+      offMessage(handleMessage);
+    };
   }, [onMessage, offMessage]);
+
+  const loadMessages = async () => {
+    if (!h3Index) return;
+    
+    try {
+      const msgs = await chatService.getMessages(h3Index);
+      setMessages(msgs);
+    } catch (error) {
+      console.error('[HexChatPage] Failed to load messages:', error);
+      // Don't show error toast - WebSocket MessageHistory might still work
+    }
+  };
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,14 +142,24 @@ export function HexChatPage() {
   return (
     <div className="h-screen flex">
       {/* Left sidebar - Neighbors */}
-      <div className="w-64 bg-gray-50 border-r border-gray-200 overflow-y-auto">
-        <div className="p-4">
-          <h2 className="text-lg font-semibold mb-4">Nearby Areas</h2>
-          <NeighborList 
-            neighbors={neighbors}
-            onSelectNeighbor={switchToNeighbor}
-          />
-        </div>
+      <div className={`${sidebarCollapsed ? 'w-12' : 'w-64'} bg-gray-50 border-r border-gray-200 transition-all duration-300 relative`}>
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="absolute -right-3 top-4 z-10 bg-white border border-gray-200 rounded-full p-1 hover:bg-gray-100"
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </button>
+        
+        {!sidebarCollapsed && (
+          <div className="p-4 overflow-y-auto h-full">
+            <h2 className="text-lg font-semibold mb-4">Nearby Areas</h2>
+            <NeighborList 
+              neighbors={neighbors}
+              onSelectNeighbor={switchToNeighbor}
+            />
+          </div>
+        )}
       </div>
       
       {/* Main chat area */}
@@ -176,7 +234,7 @@ export function HexChatPage() {
                     )}
                     <p>{message.content}</p>
                     <p className="text-xs opacity-75 mt-1">
-                      {new Date(message.timestamp).toLocaleTimeString()}
+                      {formatMessageTime(message.timestamp)}
                     </p>
                   </div>
                 </div>

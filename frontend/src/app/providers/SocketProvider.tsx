@@ -31,7 +31,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [currentLocationId, setCurrentLocationId] = useState<string | null>(null);
 
   const connectToLocation = useCallback((locationId: string) => {
-    if (currentLocationId === locationId) return;
+    if (currentLocationId === locationId && socketRef.current?.readyState === WebSocket.OPEN) {
+      return;
+    }
     
     disconnectFromLocation();
     
@@ -43,29 +45,31 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     const wsHost = chatApiUrl.replace(/^https?:\/\//, '');
     const wsUrl = `${wsProtocol}://${wsHost}/ws/${locationId}`;
     
-    console.log('Connecting to WebSocket:', wsUrl);
     socketRef.current = new WebSocket(wsUrl);
 
     socketRef.current.onopen = () => {
-      console.log('WebSocket connected');
       setIsConnected(true);
       setCurrentLocationId(locationId);
       
       // Send join message after connection is established
+      // Add small delay to allow message handlers to be registered
       if (socketRef.current?.readyState === WebSocket.OPEN) {
-        socketRef.current.send(JSON.stringify({
-          type: 'Join',
-          data: {
-            user_id: user.id,
-            username: user.username,
-            token: token
+        setTimeout(() => {
+          if (socketRef.current?.readyState === WebSocket.OPEN) {
+            socketRef.current.send(JSON.stringify({
+              type: 'Join',
+              data: {
+                user_id: user.id,
+                username: user.username,
+                token: token
+              }
+            }));
           }
-        }));
+        }, 500); // 500ms delay to allow handlers to register
       }
     };
     
     socketRef.current.onclose = () => {
-      console.log('WebSocket disconnected');
       setIsConnected(false);
       setCurrentLocationId(null);
     };
@@ -78,8 +82,15 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     socketRef.current.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('WebSocket message received:', data);
-        messageHandlersRef.current.forEach(handler => handler(data));
+        let handlerIndex = 0;
+        messageHandlersRef.current.forEach(handler => {
+          handlerIndex++;
+          try {
+            handler(data);
+          } catch (error) {
+            console.error(`[SocketProvider] Handler ${handlerIndex} threw error:`, error);
+          }
+        });
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
       }
@@ -99,31 +110,33 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     const wsHost = chatApiUrl.replace(/^https?:\/\//, '');
     const wsUrl = `${wsProtocol}://${wsHost}/ws/hex/${h3Index}`;
     
-    console.log('Connecting to hex WebSocket:', wsUrl);
     socketRef.current = new WebSocket(wsUrl);
 
     socketRef.current.onopen = () => {
-      console.log('Hex WebSocket connected');
       setIsConnected(true);
       setCurrentLocationId(h3Index);
       
       // Send hex join message after connection is established
+      // Add small delay to allow message handlers to be registered
       if (socketRef.current?.readyState === WebSocket.OPEN) {
-        socketRef.current.send(JSON.stringify({
-          type: 'JoinHex',
-          data: {
-            h3_index: h3Index,
-            user_info: {
-              user_id: user.id,
-              username: user.username
-            }
+        setTimeout(() => {
+          if (socketRef.current?.readyState === WebSocket.OPEN) {
+            socketRef.current.send(JSON.stringify({
+              type: 'JoinHex',
+              data: {
+                h3_index: h3Index,
+                user_info: {
+                  user_id: user.id,
+                  username: user.username
+                }
+              }
+            }));
           }
-        }));
+        }, 500); // 500ms delay to allow handlers to register
       }
     };
     
     socketRef.current.onclose = () => {
-      console.log('Hex WebSocket disconnected');
       setIsConnected(false);
       setCurrentLocationId(null);
     };
@@ -142,8 +155,15 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     socketRef.current.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('Hex WebSocket message received:', data);
-        messageHandlersRef.current.forEach(handler => handler(data));
+        let handlerIndex = 0;
+        messageHandlersRef.current.forEach(handler => {
+          handlerIndex++;
+          try {
+            handler(data);
+          } catch (error) {
+            console.error(`[SocketProvider] Handler ${handlerIndex} threw error:`, error);
+          }
+        });
       } catch (error) {
         console.error('Error parsing hex WebSocket message:', error);
       }
@@ -161,10 +181,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   
   const sendMessage = useCallback((message: any) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
-      console.log('Sending WebSocket message:', message);
       socketRef.current.send(JSON.stringify(message));
     } else {
-      console.warn('WebSocket not connected');
     }
   }, []);
   

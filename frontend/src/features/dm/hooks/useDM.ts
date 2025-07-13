@@ -137,7 +137,9 @@ export const useDM = ({ conversationId }: UseDMOptions): UseDMReturn => {
           senderId: msg.user_id,
           senderUsername: msg.username,
           content: msg.content,
-          timestamp: msg.timestamp,
+          timestamp: msg.timestamp?.$date?.$numberLong 
+            ? new Date(parseInt(msg.timestamp.$date.$numberLong)).toISOString()
+            : msg.timestamp || new Date().toISOString(),
           editedAt: msg.edited_at,
           deleted: msg.deleted || false,
           readBy: msg.read_by || []
@@ -152,7 +154,9 @@ export const useDM = ({ conversationId }: UseDMOptions): UseDMReturn => {
           senderId: message.data.user_id,
           senderUsername: message.data.username,
           content: message.data.content,
-          timestamp: message.data.timestamp,
+          timestamp: message.data.timestamp?.$date?.$numberLong 
+            ? new Date(parseInt(message.data.timestamp.$date.$numberLong)).toISOString()
+            : message.data.timestamp || new Date().toISOString(),
           editedAt: message.data.edited_at,
           deleted: message.data.deleted || false,
           readBy: message.data.read_by || []

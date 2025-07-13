@@ -132,6 +132,8 @@ services:
         condition: service_healthy
     ports:
       - "3002:3002"
+    volumes:
+      - user_uploads:/app/uploads
     restart: unless-stopped
 
   # Chat Service (Rust)
@@ -196,3 +198,4 @@ volumes:
   redis_data:
   mongodb_data:
   rabbitmq_data:
+  user_uploads:

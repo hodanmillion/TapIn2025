@@ -1,12 +1,12 @@
 use crate::models::*;
 use chrono::{DateTime, Utc};
 use mongodb::{
-    bson::{doc, oid::ObjectId, Bson},
+    bson::{self, doc, oid::ObjectId, Bson},
     error::Result as MongoResult,
     options::{FindOptions, UpdateOptions},
     Collection, Database,
 };
-use futures::TryStreamExt;
+use futures::stream::TryStreamExt;
 
 pub struct MongoDb {
     messages: Collection<Message>,
@@ -36,6 +36,8 @@ impl MongoDb {
         limit: i64,
         before: Option<DateTime<Utc>>,
     ) -> MongoResult<Vec<Message>> {
+        tracing::info!("Getting messages for room: {}, limit: {}", location_id, limit);
+        
         let mut filter = doc! { "room_id": location_id };
         
         if let Some(before_time) = before {
@@ -47,13 +49,15 @@ impl MongoDb {
             .limit(limit)
             .build();
 
-        let mut cursor = self.messages.find(filter, options).await?;
+        let mut cursor = self.messages.find(filter.clone(), options).await?;
         let mut messages = Vec::new();
         
-        while let Some(message) = cursor.try_next().await? {
-            messages.push(message);
+        while let Some(msg) = cursor.try_next().await? {
+            tracing::debug!("Successfully deserialized message: {:?}", msg.id);
+            messages.push(msg);
         }
         
+        tracing::info!("Retrieved {} messages for room {}", messages.len(), location_id);
         messages.reverse(); // Return in chronological order
         Ok(messages)
     }

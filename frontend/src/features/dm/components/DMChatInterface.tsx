@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { formatDistanceToNow } from 'date-fns';
 import { Send, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDM } from '../hooks/useDM';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { formatRelativeTime } from '@/utils/dateHelpers';
 
 interface DMChatInterfaceProps {
   conversationId: string;
@@ -183,7 +183,7 @@ export const DMChatInterface: React.FC<DMChatInterfaceProps> = ({ conversationId
                     <p className={`text-xs mt-1 ${
                       isOwnMessage ? 'text-blue-100' : 'text-gray-500'
                     }`}>
-                      {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
+                      {formatRelativeTime(message.timestamp)}
                       {message.editedAt && ' (edited)'}
                     </p>
                     {isOwnMessage && message.readBy.length > 1 && (

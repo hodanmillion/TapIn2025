@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 export function ChatPage() {
   const { locationId } = useParams<{ locationId: string }>();
   const { user } = useAuth();
-  const { isConnected, connectToLocation, sendMessage: sendSocketMessage, onMessage, offMessage } = useSocket();
+  const { isConnected, connectToLocation, disconnectFromLocation, sendMessage: sendSocketMessage, onMessage, offMessage } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -24,7 +24,7 @@ export function ChatPage() {
     loadMessages();
 
     return () => {
-      // Cleanup handled by SocketProvider
+      disconnectFromLocation();
     };
   }, [locationId, connectToLocation]);
 

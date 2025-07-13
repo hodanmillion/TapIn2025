@@ -2,6 +2,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { userService } from '@/services/user.service';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { Avatar } from '@/components/Avatar';
 
 export function SettingsPage() {
   const { user } = useAuth();
@@ -113,19 +114,12 @@ export function SettingsPage() {
               <h2 className="text-xl font-semibold mb-4">Profile Picture</h2>
               <div className="flex items-center space-x-6">
                 <div className="relative">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt="Profile"
-                      className="w-24 h-24 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-24 h-24 bg-gray-300 rounded-full flex items-center justify-center">
-                      <span className="text-2xl font-semibold text-gray-600">
-                        {user?.username?.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
+                  <Avatar
+                    src={avatarUrl}
+                    alt={user?.username || 'Profile'}
+                    size="lg"
+                    className="w-24 h-24"
+                  />
                   {isUploadingAvatar && (
                     <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>

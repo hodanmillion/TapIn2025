@@ -6,18 +6,25 @@ import { useGeolocation } from '@/shared/hooks/useGeolocation';
 import { useLocalChat } from '../hooks/useLocalChat';
 import { LocationPermissionModal } from './LocationPermissionModal';
 import { Message } from '@/types';
+import { formatMessageTime } from '@/utils/dateHelpers';
 import toast from 'react-hot-toast';
 
 export function LocalChatInterface() {
   const { user } = useAuth();
   const { isConnected, sendMessage: sendSocketMessage, onMessage, offMessage } = useSocket();
   const { coordinates, error: locationError, isSupported, isLoading: isLocationLoading } = useGeolocation({ watch: true });
-  const { currentRoom, isJoining, joinLocalChat, updateLocation } = useLocalChat();
+  const { currentRoom, isJoining, joinLocalChat, updateLocation, leaveCurrentRoom } = useLocalChat();
   
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [hasAutoJoined, setHasAutoJoined] = useState(false);
+  
+  // Reset state on mount
+  useEffect(() => {
+    setMessages([]);
+    setHasAutoJoined(false);
+  }, []);
 
   // Auto-join local chat when coordinates become available
   useEffect(() => {
@@ -34,30 +41,42 @@ export function LocalChatInterface() {
     }
   }, [coordinates, currentRoom, updateLocation]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Disconnect WebSocket when component unmounts
+      leaveCurrentRoom();
+      // Clear local state
+      setMessages([]);
+      setHasAutoJoined(false);
+    };
+  }, [leaveCurrentRoom]);
+
   // Handle socket messages
   useEffect(() => {
     const handleMessage = (data: any) => {
       switch (data.type) {
         case 'NewMessage':
           // Transform backend message format to frontend Message interface
+          const msgData = data.data || data; // Handle both wrapped and unwrapped formats
           const transformedMessage: Message = {
-            id: data._id?.$oid || data._id || data.id,
-            room_id: data.room_id,
-            user_id: data.user_id,
-            username: data.username,
-            content: data.content,
-            timestamp: data.timestamp?.$date?.$numberLong 
-              ? new Date(parseInt(data.timestamp.$date.$numberLong)).toISOString()
-              : data.timestamp || new Date().toISOString(),
-            deleted: data.deleted || false,
-            reactions: data.reactions || []
+            id: msgData._id?.$oid || msgData._id || msgData.id,
+            room_id: msgData.room_id,
+            user_id: msgData.user_id,
+            username: msgData.username,
+            content: msgData.content,
+            timestamp: msgData.timestamp?.$date?.$numberLong 
+              ? new Date(parseInt(msgData.timestamp.$date.$numberLong)).toISOString()
+              : msgData.timestamp || new Date().toISOString(),
+            edited_at: msgData.edited_at || undefined,
+            deleted: msgData.deleted || false,
+            reactions: msgData.reactions || []
           };
-          console.log('Adding transformed message to UI:', transformedMessage);
           setMessages(prev => [...prev, transformedMessage]);
           break;
         case 'MessageHistory':
           // Transform message history format
-          const transformedHistory = (data.messages || []).map((msg: any) => ({
+          const transformedHistory = (data.data?.messages || []).map((msg: any) => ({
             id: msg._id?.$oid || msg._id || msg.id,
             room_id: msg.room_id,
             user_id: msg.user_id,
@@ -66,10 +85,10 @@ export function LocalChatInterface() {
             timestamp: msg.timestamp?.$date?.$numberLong 
               ? new Date(parseInt(msg.timestamp.$date.$numberLong)).toISOString()
               : msg.timestamp || new Date().toISOString(),
+            edited_at: msg.edited_at || undefined,
             deleted: msg.deleted || false,
             reactions: msg.reactions || []
           }));
-          console.log('Setting message history:', transformedHistory);
           setMessages(transformedHistory);
           break;
         case 'UserJoined':
@@ -251,7 +270,7 @@ export function LocalChatInterface() {
                 )}
                 <p>{message.content}</p>
                 <p className="text-xs opacity-75 mt-1">
-                  {new Date(message.timestamp).toLocaleTimeString()}
+                  {formatMessageTime(message.timestamp)}
                 </p>
               </div>
             </div>

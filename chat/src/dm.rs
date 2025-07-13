@@ -25,8 +25,37 @@ pub struct GetDMMessagesQuery {
 }
 
 #[derive(Debug, Serialize)]
+pub struct DirectMessageResponse {
+    pub id: String,
+    pub conversation_id: String,
+    pub sender_id: String,
+    pub sender_username: String,
+    pub content: String,
+    pub timestamp: String,
+    pub edited_at: Option<String>,
+    pub deleted: bool,
+    pub read_by: Vec<String>,
+}
+
+impl From<DirectMessage> for DirectMessageResponse {
+    fn from(msg: DirectMessage) -> Self {
+        DirectMessageResponse {
+            id: msg.id.map(|id| id.to_string()).unwrap_or_default(),
+            conversation_id: msg.conversation_id,
+            sender_id: msg.sender_id,
+            sender_username: msg.sender_username,
+            content: msg.content,
+            timestamp: msg.timestamp.to_rfc3339(),
+            edited_at: msg.edited_at.map(|dt| dt.to_rfc3339()),
+            deleted: msg.deleted,
+            read_by: msg.read_by,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct DMMessageResponse {
-    pub messages: Vec<DirectMessage>,
+    pub messages: Vec<DirectMessageResponse>,
     pub has_more: bool,
 }
 
@@ -357,8 +386,12 @@ pub async fn get_dm_messages_handler(
     let messages = get_dm_messages(&state, &conversation_id, query.before, query.limit).await;
     let has_more = messages.len() == query.limit.unwrap_or(50) as usize;
     
+    let message_responses: Vec<DirectMessageResponse> = messages.into_iter()
+        .map(DirectMessageResponse::from)
+        .collect();
+    
     Ok(Json(DMMessageResponse {
-        messages,
+        messages: message_responses,
         has_more,
     }))
 }

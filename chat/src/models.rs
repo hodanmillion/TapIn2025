@@ -11,8 +11,9 @@ pub struct Message {
     pub user_id: String,
     pub username: String,
     pub content: String,
+    #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub timestamp: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub edited_at: Option<DateTime<Utc>>,
     #[serde(default)]
     pub deleted: bool,
@@ -32,7 +33,9 @@ pub struct ChatRoom {
     pub id: String, // location_id
     pub location_id: String,
     pub active_users: i32,
+    #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub last_message_at: DateTime<Utc>,
+    #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub created_at: DateTime<Utc>,
     pub settings: RoomSettings,
 }
@@ -58,8 +61,8 @@ pub enum WsMessage {
     Join { user_id: String, username: String, token: String },
     Message { content: String },
     Typing { is_typing: bool },
-    UserJoined { username: String, timestamp: DateTime<Utc> },
-    UserLeft { username: String, timestamp: DateTime<Utc> },
+    UserJoined { username: String, #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")] timestamp: DateTime<Utc> },
+    UserLeft { username: String, #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")] timestamp: DateTime<Utc> },
     NewMessage(Message),
     MessageHistory { messages: Vec<Message> },
     Error { message: String },
@@ -96,8 +99,9 @@ pub struct DirectMessage {
     pub sender_id: String,
     pub sender_username: String,
     pub content: String,
+    #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub timestamp: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub edited_at: Option<DateTime<Utc>>,
     #[serde(default)]
     pub deleted: bool,
@@ -111,6 +115,8 @@ pub struct DMConversation {
     pub id: String, // conversation_id from user service
     pub participants: Vec<String>, // User IDs
     pub last_message: Option<DirectMessage>,
+    #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub created_at: DateTime<Utc>,
+    #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub updated_at: DateTime<Utc>,
 }

@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let redis_uri = std::env::var("REDIS_URI")
         .unwrap_or_else(|_| "redis://localhost:6379".to_string());
     
-    let app_state = AppState::new(&mongodb_uri, &redis_uri, "chat_app").await?;
+    let app_state = AppState::new(&mongodb_uri, &redis_uri, "chat_db").await?;
 
     let app = Router::new()
         // Health check

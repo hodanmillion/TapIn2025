@@ -20,7 +20,7 @@ export interface LocalChatError {
 }
 
 export function useLocalChat() {
-  const { sendMessage, onMessage, offMessage, connectToLocation, isConnected } = useSocket();
+  const { sendMessage, onMessage, offMessage, connectToLocation, disconnectFromLocation, isConnected } = useSocket();
   const { user } = useAuth();
   const [currentRoom, setCurrentRoom] = useState<LocalChatRoom | null>(null);
   const [isJoining, setIsJoining] = useState(false);
@@ -30,7 +30,6 @@ export function useLocalChat() {
   // Handle incoming messages
   useEffect(() => {
     const handleMessage = (data: any) => {
-      console.log('Received message in useLocalChat:', data);
       
       switch (data.type) {
         case 'RoomJoined':
@@ -177,7 +176,9 @@ export function useLocalChat() {
   const leaveCurrentRoom = useCallback(() => {
     setCurrentRoom(null);
     setError(null);
-  }, []);
+    setCurrentLocationId(null);
+    disconnectFromLocation();
+  }, [disconnectFromLocation]);
 
   return {
     currentRoom,

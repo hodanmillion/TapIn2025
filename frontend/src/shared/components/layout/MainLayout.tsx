@@ -27,12 +27,6 @@ export function MainLayout() {
                   Home
                 </Link>
                 <Link
-                  to="/search"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-gray-700"
-                >
-                  Search
-                </Link>
-                <Link
                   to="/messages"
                   className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-gray-700"
                 >

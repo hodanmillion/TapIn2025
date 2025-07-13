@@ -8,6 +8,35 @@ use axum::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Serialize)]
+pub struct MessageResponse {
+    pub id: String,
+    pub room_id: String,
+    pub user_id: String,
+    pub username: String,
+    pub content: String,
+    pub timestamp: String,
+    pub edited_at: Option<String>,
+    pub deleted: bool,
+    pub reactions: Vec<Reaction>,
+}
+
+impl From<Message> for MessageResponse {
+    fn from(msg: Message) -> Self {
+        MessageResponse {
+            id: msg.id.map(|id| id.to_string()).unwrap_or_default(),
+            room_id: msg.room_id,
+            user_id: msg.user_id,
+            username: msg.username,
+            content: msg.content,
+            timestamp: msg.timestamp.to_rfc3339(),
+            edited_at: msg.edited_at.map(|dt| dt.to_rfc3339()),
+            deleted: msg.deleted,
+            reactions: msg.reactions,
+        }
+    }
+}
+
 pub async fn websocket_handler(
     ws: WebSocketUpgrade,
     Path(location_id): Path<String>,
@@ -34,10 +63,21 @@ pub async fn get_messages(
     Path(location_id): Path<String>,
     Query(params): Query<GetMessagesQuery>,
     State(state): State<AppState>,
-) -> Result<Json<Vec<Message>>, AppError> {
+) -> Result<Json<Vec<MessageResponse>>, AppError> {
+    tracing::info!("GET /api/messages/{} - limit: {:?}, before: {:?}", location_id, params.limit, params.before);
     let limit = params.limit.unwrap_or(50).min(100);
-    let messages = state.db.get_messages(&location_id, limit, params.before).await?;
-    Ok(Json(messages))
+    
+    match state.db.get_messages(&location_id, limit, params.before).await {
+        Ok(messages) => {
+            tracing::info!("Successfully retrieved {} messages for location {}", messages.len(), location_id);
+            let responses: Vec<MessageResponse> = messages.into_iter().map(MessageResponse::from).collect();
+            Ok(Json(responses))
+        },
+        Err(e) => {
+            tracing::error!("Failed to get messages for location {}: {:?}", location_id, e);
+            Err(AppError::DatabaseError(e))
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -51,7 +91,7 @@ pub struct SendMessageRequest {
 pub async fn send_message(
     State(state): State<AppState>,
     Json(req): Json<SendMessageRequest>,
-) -> Result<Json<Message>, AppError> {
+) -> Result<Json<MessageResponse>, AppError> {
     let mut message = Message {
         id: None,
         room_id: req.location_id,
@@ -67,7 +107,7 @@ pub async fn send_message(
     let id = state.db.create_message(&message).await?;
     message.id = Some(id);
     
-    Ok(Json(message))
+    Ok(Json(MessageResponse::from(message)))
 }
 
 pub async fn get_room_info(

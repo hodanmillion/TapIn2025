@@ -4,6 +4,7 @@ import { StartConversationButton } from '@/features/dm/components/StartConversat
 import { useState, useEffect } from 'react';
 import { userService } from '@/services/user.service';
 import toast from 'react-hot-toast';
+import { Avatar } from '@/components/Avatar';
 
 export function ProfilePage() {
   const { username } = useParams<{ username: string }>();
@@ -119,19 +120,11 @@ export function ProfilePage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center space-x-4">
-            {displayUser?.avatarUrl ? (
-              <img 
-                src={displayUser.avatarUrl} 
-                alt={displayName}
-                className="w-20 h-20 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-20 h-20 bg-gray-300 rounded-full flex items-center justify-center">
-                <span className="text-2xl font-semibold text-gray-600">
-                  {displayName?.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            )}
+            <Avatar 
+              src={displayUser?.avatarUrl} 
+              alt={displayName || username || 'User'}
+              size="lg"
+            />
             <div>
               <h1 className="text-2xl font-bold">{displayName}</h1>
               <p className="text-gray-600">@{displayUser?.username || username}</p>

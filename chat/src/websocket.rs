@@ -178,8 +178,15 @@ pub async fn handle_socket(socket: WebSocket, location_id: String, state: AppSta
                         }
                         
                         // Send message history
-                        if let Ok(messages) = state_clone.db.get_messages(&location_id_clone, 50, None).await {
-                            let _ = tx.send(WsMessage::MessageHistory { messages });
+                        info!("Fetching message history for room: {}", location_id_clone);
+                        match state_clone.db.get_messages(&location_id_clone, 50, None).await {
+                            Ok(messages) => {
+                                info!("Sending {} messages in history to user", messages.len());
+                                let _ = tx.send(WsMessage::MessageHistory { messages });
+                            },
+                            Err(e) => {
+                                error!("Failed to get message history: {}", e);
+                            }
                         }
                         
                         // Notify others
@@ -426,8 +433,15 @@ pub async fn handle_hex_socket(socket: WebSocket, h3_index: String, state: AppSt
                         });
                         
                         // Send message history
-                        if let Ok(messages) = state_clone.db.get_messages(&h3_index_clone, 50, None).await {
-                            let _ = tx.send(WsMessage::MessageHistory { messages });
+                        info!("Fetching hex message history for room: {}", h3_index_clone);
+                        match state_clone.db.get_messages(&h3_index_clone, 50, None).await {
+                            Ok(messages) => {
+                                info!("Sending {} hex messages in history to user", messages.len());
+                                let _ = tx.send(WsMessage::MessageHistory { messages });
+                            },
+                            Err(e) => {
+                                error!("Failed to get hex message history: {}", e);
+                            }
                         }
                         
                         // Notify others
